@@ -37,7 +37,6 @@ static void asento_task(void *arg){
 static void merkki_task(void *arg){
     tänne päädytään kun state = Piste tai Valilyonti tai Viiva
     (void)arg;
-
     for(;;){
         tight_loop_contents();
         merkki on tallessa asento muuttujassa - tai . tai "  "
