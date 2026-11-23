@@ -75,6 +75,7 @@ ${CMAKE_CURRENT_LIST_DIR}/config
 # DO NOT EDIT: Prepare the build to compile different libraries of the project ==================
 # Add librabries. The TKJHAT does not use libraries from FreeRTOS
 add_subdirectory(libs/TKJHAT)
+add_subdirectory(examples/hat_imu_ex)
 # Support for usb serial communication
 add_subdirectory(libs/usb-serial-debug)
 # If created new libraries, include them here. 
