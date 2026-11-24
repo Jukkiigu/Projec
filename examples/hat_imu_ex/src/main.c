@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <pico/stdlib.h>
 #include <FreeRTOS.h>
@@ -17,9 +18,9 @@
 
 enum state { IDLE=1, Luetila, Piste, Valilyonti, Viiva, X, Laheta };
 enum state programState = IDLE;
+
 static char puskuri[BUFFER_SIZE];
-static int paikka;
-static char asento = 0;
+static int paikka = 0;
 
 static volatile bool nappi1 = false;
 static volatile bool nappi2 = false;
@@ -78,51 +79,55 @@ static void merkki_task(void *arg){
         if (programState == Piste || programState == Viiva || programState == Valilyonti)
         {
                
-         if(paikka < 20){
+         if(paikka+2 < BUFFER_SIZE){
                 if (programState == Piste)
                 {
-                    puskuri[paikka] = '.';
+                    puskuri[paikka++] = '.';
                     puskuri[paikka++] = ' ';
                 }
                 else if (programState == Viiva)
                 {
-                    puskuri[paikka] = '-';
+                    puskuri[paikka++] = '-';
                     puskuri[paikka++] = ' ';
                 }
                 else if (programState == Valilyonti)
                 {
-                    puskuri[paikka] = ' ';
+                    puskuri[paikka++] = ' ';
                     puskuri[paikka++] = ' ';
                 }
-            paikka += 2;
-            blink_led(2)
+            puskuri[paikka] = '\0';
+            blink_led(2);
             programState = IDLE;
             }
-         else{programstate = Laheta}
+         else{
+            programState = Laheta;
+        }
         }
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
-*/
+}
+static void UART_task(void *arg){
 
-/static void UART_task(void *arg)
-{
+    char lahetysPuskuri[BUFFER_SIZE+4];
+    lahetysPuskuri[0] = '\0';
+
     (void)arg;
 
-    for (;;)
-    {
+    for (;;){
         if (programState == Laheta || nappi2){
            nappi2 = false;
            
-            printf("%s", lahetysPuskuri);
+            snprintf(lahetysPuskuri, sizeof(lahetysPuskuri), "%s  \n", puskuri);
             puskuri[0] = '\0';
+            paikka = 0;
+            printf("%s", lahetysPuskuri);
             fflush(stdout);
             programState = IDLE;
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
-*/
 int main() {
     stdio_init_all();
     init_hat_sdk();
@@ -144,5 +149,3 @@ int main() {
          vTaskStartScheduler();
     return 0;
     }
-
-
