@@ -6,32 +6,50 @@
 #include <task.h>
 #include "tkjhat/sdk.h"
 
+#define SW1_PIN 2
+#define SW2_PIN 22
+#define BUTTON1 SW1_PIN
+#define BUTTON2 SW2_PIN
 #define DEFAULT_STACK_SIZE 2048 
+#define BUFFER_SIZE 20
+#define RED_LED_PIN 14
+#define LED1 RED_LED_PIN
 
 enum state { IDLE=1, Luetila, Piste, Valilyonti, Viiva, X, Laheta };
 enum state programState = IDLE;
-char asento = X;
+static char puskuri[BUFFER_SIZE];
+static int paikka;
+static char asento = 0;
+
+static volatile bool nappi1 = false;
+static volatile bool nappi2 = false;
+
+static void nappifun(uint gpio, uint32_t eventMask) {
+    if (gpio  == BUTTON1)
+        nappi1 = true;
+    else if (gpio == BUTTON2)
+        nappi2 = true;
+}
 
 
-static void asento_task(void *pvparameters){ (void)pvparameters;
+static void asento_task(void *pvparameters){ 
+   (void)pvparameters;
 
    float ax, ay, az, gx, gy, gz, t;
-
 
     init_ICM42670();
     ICM42670_start_with_default_values();
 
-   // jos nappia painetaan, niin luetaan sensorin arvo ja muutetaan ohjelman tila
-
-    while (1)
+    for(;;)
     {
         if (programState == IDLE){
-            onko nappia painettu? jos nappia painettu:
-            programState = Luetila;
+            if(nappi1){
+               nappi1=false;
+               programState = Luetila;
+            }
         }
 
         if(programState == Luetila){
-            // luetaan sensorin arvo-->>
 
         if (ICM42670_read_sensor_data(&ax, &ay, &az, &gx, &gy, &gz, &t) == 0) {
 
@@ -50,91 +68,57 @@ static void asento_task(void *pvparameters){ (void)pvparameters;
             printf("X=%f, Y=%f, Z=%f\n", ax, ay, az);
             printf("asento on %d\n", programState);
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(300));
-        }
-        vTaskDelay(pdMS_TO_TICKS(300));
     }
+        vTaskDelay(pdMS_TO_TICKS(20));
+ }
 
-
-/*static void merkki_task(void *arg){
-
-lisätään merkki puskuriin
-
-    (void)arg;
-
-    int pituus;
-
-    for (;;)
-    {
-        xSemaphoreTake(stateMutex, portMAX_DELAY);
-
-        // Tarkistetaan ohjelman tila
-        if (programState == Piste ||
-            programState == Viiva ||
-            programState == Valilyonti)
+static void merkki_task(void *arg){
+   (void)arg;
+    for (;;){
+        if (programState == Piste || programState == Viiva || programState == Valilyonti)
         {
-
+               
+         if(paikka < 20){
                 if (programState == Piste)
                 {
-                    puskuri[] = '.';
+                    puskuri[paikka] = '.';
+                    puskuri[paikka++] = ' ';
                 }
                 else if (programState == Viiva)
                 {
-                    puskuri[] = '-';
+                    puskuri[paikka] = '-';
+                    puskuri[paikka++] = ' ';
                 }
                 else if (programState == Valilyonti)
                 {
-                    puskuri[] = ' ';
+                    puskuri[paikka] = ' ';
+                    puskuri[paikka++] = ' ';
                 }
-
-                // Siirrytään lähettämistilaan
-                programState = Laheta;
+            paikka += 2;
+            blink_led(2)
+            programState = IDLE;
             }
+         else{programstate = Laheta}
         }
-
-        xSemaphoreGive(stateMutex);
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 */
 
-/*static void UART_task(void *arg)
+/static void UART_task(void *arg)
 {
     (void)arg;
 
-    char lahetysPuskuri[BUFFER_SIZE];
-
     for (;;)
     {
-        xSemaphoreTake(stateMutex, portMAX_DELAY);
-
-        if (programState == Laheta)
-        {
-            // Kopioidaan puskuri paikalliseen muuttujaan
-            strcpy(lahetysPuskuri, puskuri);
-
-            // Tyhjennetään alkuperäinen puskuri
-            puskuri[0] = '\0';
-
-            xSemaphoreGive(stateMutex);
-
-            // Lähetetään työasemalle USB:n kautta
+        if (programState == Laheta || nappi2){
+           nappi2 = false;
+           
             printf("%s", lahetysPuskuri);
+            puskuri[0] = '\0';
             fflush(stdout);
-
-            xSemaphoreTake(stateMutex, portMAX_DELAY);
-
-            // Palataan alkutilaan
             programState = IDLE;
-
-            xSemaphoreGive(stateMutex);
         }
-        else
-        {
-            xSemaphoreGive(stateMutex);
-        }
-
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
@@ -145,12 +129,17 @@ int main() {
     init_button1();
     init_button2();
     sleep_ms(300);
+    init_led();
+    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, nappifun);
+    gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
-    TaskHandle_t TaskHandle = NULL;
-    
-        xTaskCreate(asento_task, "Asento", 1024, NULL, 2, &TaskHandle);
-        //xTaskCreate(merkki_task, "Merkki", 512, NULL, 2, &Taskhandle);
-        //xTaskCreate(UART_task, "UART", 512, NULL, 2, &Taskhandle);
+    TaskHandle_t asentoHandle = NULL;
+    TaskHandle_t merkkiHandle = NULL;
+    TaskHandle_t uartHandle = NULL;
+
+    xTaskCreate(asento_task, "Asento", DEFAULT_STACK_SIZE, NULL, 2, &asentoHandle);
+    xTaskCreate(merkki_task, "Merkki", DEFAULT_STACK_SIZE, NULL, 2, &merkkiHandle);
+    xTaskCreate(UART_task, "UART", DEFAULT_STACK_SIZE, NULL, 2, &uartHandle);
 
          vTaskStartScheduler();
     return 0;
