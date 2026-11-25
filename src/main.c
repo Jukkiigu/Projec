@@ -12,7 +12,7 @@
 #define BUTTON1 SW1_PIN
 #define BUTTON2 SW2_PIN //määritykset
 #define DEFAULT_STACK_SIZE 2048 
-#define BUFFER_SIZE 40
+#define BUFFER_SIZE 40 //viestin pituutta voidaan muuttaa tästä
 #define RED_LED_PIN 14
 #define LED1 RED_LED_PIN
 
