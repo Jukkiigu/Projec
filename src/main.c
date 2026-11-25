@@ -50,7 +50,7 @@ static void asento_task(void *pvparameters){ //tämä task lukee sensoria muutta
             }
         }
 
-        if(programState == Luetila){ //luetaan sensorin tila ja halutessa tulostetaan halutessa monitoriin
+        if(programState == Luetila){ //luetaan sensorin tila
 
         if (ICM42670_read_sensor_data(&ax, &ay, &az, &gx, &gy, &gz, &t) == 0) {
 
